@@ -1,0 +1,102 @@
+services:
+  postgres:
+    image: postgres:18-alpine
+    container_name: bimu-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "0.0.0.0:${POSTGRES_PORT}:5432"
+    volumes:
+      - bimu_postgres_data:/var/lib/postgresql/data
+      - ./migrations:/docker-entrypoint-initdb.d
+    command: >
+      postgres
+      -c listen_addresses='*'
+      -c max_connections=100
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - bimu-network
+
+  minio:
+    image: minio/minio:latest
+    container_name: bimu-minio
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      MINIO_BROWSER_REDIRECT_URL: ${MINIO_BROWSER_REDIRECT_URL}
+    ports:
+      - "${MINIO_PORT}:9000"
+      - "${MINIO_CONSOLE_PORT}:9001"
+    volumes:
+      - bimu_minio_data:/data
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+    networks:
+      - bimu-network
+    restart: unless-stopped
+
+  minio-init:
+    image: minio/mc:latest
+    container_name: bimu-minio-init
+    stdin_open: false
+    tty: false
+    depends_on:
+      - minio
+    entrypoint: >
+      /bin/sh -c "
+      sleep 5;
+      mc alias set myminio http://minio:9000 ${MINIO_ROOT_USER} ${MINIO_ROOT_PASSWORD};
+      mc mb myminio/public --ignore-existing;
+      mc mb myminio/private --ignore-existing;
+      mc mb myminio/documents --ignore-existing;
+      echo 'Configurando políticas de acesso...';
+      mc anonymous set public myminio/public;
+      mc anonymous set download myminio/private;
+      mc anonymous set download myminio/documents;
+      echo 'MinIO configurado com buckets inicializados com sucesso!';
+      "
+    networks:
+      - bimu-network
+
+  api-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: bimu-api-service
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}
+      MINIO_ENDPOINT: ${MINIO_ENDPOINT}
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      MINIO_USE_SSL: ${MINIO_USE_SSL}
+      API_PORT: ${API_PORT}
+    ports:
+      - "${API_PORT}:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    networks:
+      - bimu-network
+    restart: unless-stopped
+
+networks:
+  bimu-network:
+    driver: bridge
+
+volumes:
+  bimu_postgres_data:
+    driver: local
+  bimu_minio_data:
+    driver: local
