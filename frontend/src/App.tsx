@@ -1,26 +1,27 @@
-import { Layout, Typography } from 'antd'
-
-const { Header, Content } = Layout
-const { Title } = Typography
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import AppLayout from './components/AppLayout'
+import Home from './pages/Home'
+import Usuarios from './pages/Usuarios'
+import Livros from './pages/Livros'
+import Exemplares from './pages/Exemplares'
+import Emprestimos from './pages/Emprestimos'
+import Multas from './pages/Multas'
 
 function App() {
   return (
-    <Layout style={{ minHeight: '100vh' }}>
-      <Header style={{ display: 'flex', alignItems: 'center', padding: '0 24px' }}>
-        <Title level={3} style={{ color: 'white', margin: 0 }}>
-          BIMU
-        </Title>
-        <span style={{ color: 'rgba(255,255,255,0.65)', marginLeft: 12, fontSize: 14 }}>
-          Biblioteca Municipal Unificada
-        </span>
-      </Header>
-      <Content style={{ padding: 24 }}>
-        <Title level={4}>Bem-vindo ao BIMU</Title>
-        <p>
-          Sistema de gerenciamento de biblioteca compartilhada entre escolas municipais.
-        </p>
-      </Content>
-    </Layout>
+    <BrowserRouter>
+      <Routes>
+        <Route element={<AppLayout />}>
+          <Route index element={<Home />} />
+          <Route path="usuarios" element={<Usuarios />} />
+          <Route path="livros" element={<Livros />} />
+          <Route path="exemplares" element={<Exemplares />} />
+          <Route path="emprestimos" element={<Emprestimos />} />
+          <Route path="multas" element={<Multas />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Route>
+      </Routes>
+    </BrowserRouter>
   )
 }
 

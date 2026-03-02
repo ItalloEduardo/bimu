@@ -10,7 +10,14 @@ export default defineConfig({
       '/api': {
         target: 'http://localhost:3000',
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api/, ''),
+        rewrite: (path) => path.replace(/^\/api/, '') || '/',
+        secure: false,
+        configure: (proxy) => {
+          proxy.on('error', (err) => {
+            console.error('[Vite Proxy] Erro:', err.message)
+            console.error('[Vite Proxy] Inicie o backend: cd backend && npm run dev')
+          })
+        },
       },
     },
   },
